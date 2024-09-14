@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+
+<!--
+ * @author      Andreas Knollmann
+ * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <section id="infrangible_catalogproductpos" translate="label" type="text" sortOrder="1030" showInDefault="1" showInWebsite="1" showInStore="1">
+            <label>Product Point of Sale</label>
+            <tab>infrangible</tab>
+            <resource>Infrangible_CatalogProductPos::config_infrangible_catalogproductpos</resource>
+            <group id="attribute" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                <label>Attribute</label>
+                <field id="attribute" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>POS Attribute</label>
+                    <source_model>Infrangible\Core\Model\Config\Source\Attribute\Product</source_model>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>

@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+
+<!--
+ * @author      Andreas Knollmann
+ * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+    <type name="Magento\Config\Model\Config\Structure\Data">
+        <plugin name="infrangible_catalogproductpos" type="Infrangible\CatalogProductPOS\Plugin\Config\Model\Config\Structure\Data"/>
+    </type>
+</config>

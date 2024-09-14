@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+
+<!--
+ * @author      Andreas Knollmann
+ * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <event name="catalog_product_is_salable_after">
+        <observer name="catalog_product_pos" instance="Infrangible\CatalogProductPOS\Observer\CatalogProductIsSalableAfter"/>
+    </event>
+    <event name="catalog_product_swatch_attributes">
+        <observer name="catalog_product_pos" instance="Infrangible\CatalogProductPOS\Observer\CatalogProductSwatchAttributes"/>
+    </event>
+</config>

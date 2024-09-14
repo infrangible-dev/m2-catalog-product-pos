@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @author      Andreas Knollmann
+ * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
+use Infrangible\CatalogProductPOS\Block\Button;
+use Magento\Framework\Escaper;
+
+/** @var Escaper $escaper */
+/** @var Button $block */
+$product = $block->getProduct();
+?>
+
+<?php if (! $product->isSaleable() && $block->isNotSaleable() && $block->showButton()) :?>
+    <?php $buttonText = $block->getButtonText(); ?>
+    <div class="box-tocart catalog-product-pos-button-box">
+        <div class="fieldset">
+            <div class="actions">
+                <button type="button"
+                        title="<?= $escaper->escapeHtmlAttr($buttonText); ?>"
+                        class="action primary tocart catalog-product-pos-button <?= $block->getAttributeCodeClass(); ?> <?= $block->getAttributeValueClass(); ?>"
+                        id="product-button-pos"
+                        onclick="window.location.href = '<?= $block->getButtonUrl(); ?>';">
+                    <span><?= $escaper->escapeHtml($buttonText); ?></span>
+                </button>
+                <?= $block->getChildHtml(); ?>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>

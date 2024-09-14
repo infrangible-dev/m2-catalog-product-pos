@@ -1,0 +1,39 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @author      Andreas Knollmann
+ * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
+use Infrangible\CatalogProductPOS\Block\Button;
+
+/** @var Button $block */
+?>
+
+<script type="text/x-magento-template" id="catalog-product-pos-button-template">
+    <div class="fieldset">
+        <div class="actions">
+            <button type="button"
+                    title="<%- buttonText %>"
+                    class="action primary tocart catalog-product-pos-button <%- attributeCodeClass %> <%- attributeValueClass %>"
+                    id="product-button-pos"
+                    onclick="window.location.href = '<%- buttonUrl %>';">
+                <span><%- buttonText %></span>
+            </button>
+            <?= $block->getChildHtml(); ?>
+        </div>
+    </div>
+</script>
+
+<script type="text/x-magento-init">
+    {
+        "[data-role=swatch-options]": {
+            "catalogProductPOS": {
+                "childProductData": <?= /* @noEscape */ $block->getChildProductData(); ?>
+            }
+        }
+    }
+</script>

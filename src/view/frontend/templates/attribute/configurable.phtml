@@ -1,0 +1,24 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @author      Andreas Knollmann
+ * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
+use Infrangible\CatalogProductPOS\Block\Attribute;
+
+/** @var Attribute $block */
+?>
+
+<?php if ($block->getAttributeCode()): ?>
+    <div class="catalog-product-pos">
+        <div class="catalog-product-pos-attribute <?= $block->getAttributeCodeClass(); ?>">
+        </div>
+    </div>
+    <script type="text/x-magento-template" id="catalog-product-pos-template">
+        <span class="catalog-product-pos-attribute-value <%- attributeValueClass %>"><%- attributeValue %></span>
+    </script>
+<?php endif; ?>
