@@ -14,8 +14,11 @@
             <group id="attribute" translate="label" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>Attribute</label>
                 <field id="attribute" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>POS Attribute</label>
+                    <label>Product Attribute</label>
                     <source_model>Infrangible\Core\Model\Config\Source\Attribute\Product</source_model>
+                </field>
+                <field id="values_separator" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Values Separator</label>
                 </field>
             </group>
         </section>

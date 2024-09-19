@@ -100,11 +100,44 @@ class Data
                                                     $optionGroupKey
                                                 )
                                             ],
+                                            'commanding'  => [
+                                                'id'            => 'commanding',
+                                                'translate'     => 'label',
+                                                'type'          => 'select',
+                                                'sortOrder'     => '20',
+                                                'showInDefault' => '1',
+                                                'showInWebsite' => '1',
+                                                'showInStore'   => '1',
+                                                'label'         => 'Commanding',
+                                                'source_model'  => Yesno::class,
+                                                '_elementType'  => 'field',
+                                                'path'          => sprintf(
+                                                    'infrangible_catalogproductpos/%s',
+                                                    $optionGroupKey
+                                                ),
+                                                'depends'       => [
+                                                    'fields' => [
+                                                        'not_saleable' => [
+                                                            '_elementType' => 'field',
+                                                            'id'           => sprintf(
+                                                                'infrangible_catalogproductpos/%s/not_saleable',
+                                                                $optionGroupKey
+                                                            ),
+                                                            'value'        => '1',
+                                                            'dependPath'   => [
+                                                                'infrangible_catalogproductpos',
+                                                                $optionGroupKey,
+                                                                'not_saleable'
+                                                            ]
+                                                        ]
+                                                    ]
+                                                ]
+                                            ],
                                             'show_button' => [
                                                 'id'            => 'show_button',
                                                 'translate'     => 'label',
                                                 'type'          => 'select',
-                                                'sortOrder'     => '20',
+                                                'sortOrder'     => '30',
                                                 'showInDefault' => '1',
                                                 'showInWebsite' => '1',
                                                 'showInStore'   => '1',
@@ -137,7 +170,7 @@ class Data
                                                 'id'            => 'button_text',
                                                 'translate'     => 'label',
                                                 'type'          => 'text',
-                                                'sortOrder'     => '30',
+                                                'sortOrder'     => '40',
                                                 'showInDefault' => '1',
                                                 'showInWebsite' => '1',
                                                 'showInStore'   => '1',
@@ -178,11 +211,11 @@ class Data
                                                     ]
                                                 ]
                                             ],
-                                            'button_url' => [
+                                            'button_url'  => [
                                                 'id'            => 'button_url',
                                                 'translate'     => 'label',
                                                 'type'          => 'text',
-                                                'sortOrder'     => '40',
+                                                'sortOrder'     => '50',
                                                 'showInDefault' => '1',
                                                 'showInWebsite' => '1',
                                                 'showInStore'   => '1',

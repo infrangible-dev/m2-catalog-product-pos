@@ -48,6 +48,9 @@ class Data
     /** @var array<int, mixed> */
     private $attributeValues = [];
 
+    /** @var string|null */
+    private $valuesSeparator = null;
+
     public function __construct(
         Stores $storeHelper,
         \Infrangible\Core\Helper\Attribute $attributeHelper,
@@ -125,7 +128,10 @@ class Data
         return null;
     }
 
-    public function getAttributeOptionId(Product $product): ?int
+    /**
+     * @return int[]
+     */
+    public function getAttributeOptionIds(Product $product): array
     {
         try {
             $productId = $this->variables->intValue($product->getId());
@@ -137,16 +143,25 @@ class Data
                 $attributeCode = $this->getAttributeCode();
 
                 if ($attributeCode) {
-                    $attributeOptionId = $product->getData($attributeCode);
+                    $attributeOptionIds = $product->getData($attributeCode);
 
-                    if ($attributeOptionId) {
+                    $attributeOptionIds = $this->variables->isEmpty($attributeOptionIds) ? [] : explode(
+                        ',',
+                        $attributeOptionIds
+                    );
+
+                    if (! $this->variables->isEmpty($attributeOptionIds)) {
+                        $this->attributeOptionIds[ $productId ] = [];
+
                         try {
-                            $this->attributeOptionIds[ $productId ] = $this->variables->intValue($attributeOptionId);
+                            foreach ($attributeOptionIds as $attributeOptionId) {
+                                $this->attributeOptionIds[ $productId ][] =
+                                    $this->variables->intValue($attributeOptionId);
+                            }
                         } catch (Exception $exception) {
-                            $this->attributeOptionIds[ $productId ] = null;
                         }
                     } else {
-                        $this->attributeOptionIds[ $productId ] = null;
+                        $this->attributeOptionIds[ $productId ] = [];
                     }
                 }
             }
@@ -155,7 +170,7 @@ class Data
         } catch (Exception $exception) {
         }
 
-        return null;
+        return [];
     }
 
     /**
@@ -201,20 +216,32 @@ class Data
                 $productId,
                 $this->attributeValues
             )) {
-                $attributeOptionId = $this->getAttributeOptionId($product);
+                $attributeOptionIds = $this->getAttributeOptionIds($product);
 
-                if ($attributeOptionId) {
+                if (! $this->variables->isEmpty($attributeOptionIds)) {
                     $attributeCode = $this->getAttributeCode();
 
                     if ($attributeCode) {
                         $storeId = $this->variables->intValue($this->storeHelper->getStore()->getId());
 
-                        $this->attributeValues[ $productId ] = $this->attributeHelper->getAttributeOptionValue(
+                        $attributeValue = $this->attributeHelper->getAttributeOptionValue(
                             Product::ENTITY,
                             $attributeCode,
                             $storeId,
-                            $this->variables->stringValue($attributeOptionId)
+                            implode(
+                                ',',
+                                $attributeOptionIds
+                            )
                         );
+
+                        if (is_array($attributeValue)) {
+                            $attributeValue = implode(
+                                $this->getValuesSeparator(),
+                                $attributeValue
+                            );
+                        }
+
+                        $this->attributeValues[ $productId ] = $attributeValue;
 
                         return $this->attributeValues[ $productId ];
                     }
@@ -245,41 +272,62 @@ class Data
 
     public function isNotSaleable(Product $product): bool
     {
-        $attributeOptionId = $this->getAttributeOptionId($product);
+        $attributeOptionIds = $this->getAttributeOptionIds($product);
 
-        if ($attributeOptionId) {
+        $isNotSaleable = ! $this->variables->isEmpty($attributeOptionIds);
+
+        foreach ($attributeOptionIds as $attributeOptionId) {
             $optionGroupKey = sprintf(
                 'option_id_%d',
                 $attributeOptionId
             );
 
-            return $this->storeHelper->getStoreConfigFlag(
+            $optionIsNotSaleable = $this->storeHelper->getStoreConfigFlag(
                 sprintf(
                     'infrangible_catalogproductpos/%s/not_saleable',
                     $optionGroupKey
                 )
             );
+
+            if ($optionIsNotSaleable) {
+                $optionIsCommanding = $this->storeHelper->getStoreConfigFlag(
+                    sprintf(
+                        'infrangible_catalogproductpos/%s/commanding',
+                        $optionGroupKey
+                    )
+                );
+
+                if ($optionIsCommanding) {
+                    return true;
+                }
+            } else {
+                $isNotSaleable = false;
+            }
         }
 
-        return false;
+        return $isNotSaleable;
     }
 
     public function showButton(Product $product): bool
     {
-        $attributeOptionId = $this->getAttributeOptionId($product);
+        $attributeOptionIds = $this->getAttributeOptionIds($product);
 
-        if ($attributeOptionId) {
+        foreach ($attributeOptionIds as $attributeOptionId) {
             $optionGroupKey = sprintf(
                 'option_id_%d',
                 $attributeOptionId
             );
 
-            return $this->storeHelper->getStoreConfigFlag(
+            $showButton = $this->storeHelper->getStoreConfigFlag(
                 sprintf(
                     'infrangible_catalogproductpos/%s/show_button',
                     $optionGroupKey
                 )
             );
+
+            if ($showButton) {
+                return true;
+            }
         }
 
         return false;
@@ -287,20 +335,24 @@ class Data
 
     public function getButtonText(Product $product): ?string
     {
-        $attributeOptionId = $this->getAttributeOptionId($product);
+        $attributeOptionIds = $this->getAttributeOptionIds($product);
 
-        if ($attributeOptionId) {
+        foreach ($attributeOptionIds as $attributeOptionId) {
             $optionGroupKey = sprintf(
                 'option_id_%d',
                 $attributeOptionId
             );
 
-            return $this->storeHelper->getStoreConfig(
+            $buttonText = $this->storeHelper->getStoreConfig(
                 sprintf(
                     'infrangible_catalogproductpos/%s/button_text',
                     $optionGroupKey
                 )
             );
+
+            if (! $this->variables->isEmpty($buttonText)) {
+                return $buttonText;
+            }
         }
 
         return null;
@@ -308,22 +360,38 @@ class Data
 
     public function getButtonUrl(Product $product): ?string
     {
-        $attributeOptionId = $this->getAttributeOptionId($product);
+        $attributeOptionIds = $this->getAttributeOptionIds($product);
 
-        if ($attributeOptionId) {
+        foreach ($attributeOptionIds as $attributeOptionId) {
             $optionGroupKey = sprintf(
                 'option_id_%d',
                 $attributeOptionId
             );
 
-            return $this->storeHelper->getStoreConfig(
+            $buttonUrl = $this->storeHelper->getStoreConfig(
                 sprintf(
                     'infrangible_catalogproductpos/%s/button_url',
                     $optionGroupKey
                 )
             );
+
+            if (! $this->variables->isEmpty($buttonUrl)) {
+                return $buttonUrl;
+            }
         }
 
         return null;
+    }
+
+    public function getValuesSeparator(): string
+    {
+        if ($this->valuesSeparator === null) {
+            $this->valuesSeparator = $this->storeHelper->getStoreConfig(
+                'infrangible_catalogproductpos/attribute/values_separator',
+                ', '
+            );
+        }
+
+        return $this->valuesSeparator;
     }
 }
