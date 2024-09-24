@@ -38,19 +38,21 @@ class CatalogProductIsSalableAfter implements ObserverInterface
         /** @var Product $product */
         $product = $saleable->getData('product');
 
-        $isSaleable = $saleable->getData('is_salable');
+        if ($product->getTypeId() === 'simple') {
+            $isSaleable = $saleable->getData('is_salable');
 
-        if ($isSaleable) {
-            $isNotSaleable = $this->helper->isNotSaleable($product);
+            if ($isSaleable) {
+                $isNotSaleable = $this->helper->isNotSaleable($product);
 
-            if ($isNotSaleable) {
-                $isSaleable = false;
+                if ($isNotSaleable) {
+                    $isSaleable = false;
+                }
             }
-        }
 
-        $saleable->setData(
-            'is_salable',
-            $isSaleable
-        );
+            $saleable->setData(
+                'is_salable',
+                $isSaleable
+            );
+        }
     }
 }

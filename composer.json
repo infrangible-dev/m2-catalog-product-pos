@@ -2,7 +2,7 @@
     "name": "infrangible/m2-catalog-product-pos",
     "description": "Infrangible Magento 2 Catalog Product POS",
     "type": "magento2-module",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "license": "MIT",
     "keywords": [
         "Magento"
