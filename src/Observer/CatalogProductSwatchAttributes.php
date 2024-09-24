@@ -40,7 +40,8 @@ class CatalogProductSwatchAttributes implements ObserverInterface
                 $product,
                 $attributeCode,
                 '.catalog-product-pos-attribute',
-                'catalog-product-pos-template'
+                'catalog-product-pos-template',
+                $this->helper->getValuesSeparator()
             );
         }
     }

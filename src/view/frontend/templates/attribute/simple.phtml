@@ -18,7 +18,7 @@ use Infrangible\CatalogProductPOS\Block\Attribute;
         <div class="catalog-product-pos-attribute <?= $block->getAttributeCodeClass(); ?>">
             <?php $attributeValue = $block->getAttributeValue(); ?>
             <?php if ($attributeValue): ?>
-                <span class="catalog-product-pos-attribute-value <?= $block->getAttributeValueClass(); ?>"><?= $block->getAttributeValue(); ?></span>
+                <span class="catalog-product-pos-attribute-value <?= $block->getAttributeValueClass(); ?>"><?= $attributeValue; ?></span>
             <?php endif; ?>
         </div>
     </div>

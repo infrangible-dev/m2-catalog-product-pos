@@ -246,6 +246,8 @@ class Data
                         return $this->attributeValues[ $productId ];
                     }
                 }
+            } else {
+                return $this->attributeValues[ $productId ];
             }
         } catch (Exception $exception) {
         }
