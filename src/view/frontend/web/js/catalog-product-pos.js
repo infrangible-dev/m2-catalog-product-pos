@@ -10,7 +10,7 @@ define([
 ], function ($, template) {
     'use strict';
 
-    var globalOptions = {
+    const globalOptions = {
         childProductData: {}
     };
 
@@ -18,11 +18,11 @@ define([
         options: globalOptions,
 
         _init: function initCatalogProductPos() {
-            var childProductData = this.options.childProductData;
+            const childProductData = this.options.childProductData;
 
             $('.column.main').on('swatch.changed', function (event, selectedProductId) {
                 if (selectedProductId) {
-                    var selectedProductData = childProductData[selectedProductId];
+                    const selectedProductData = childProductData[selectedProductId];
 
                     if (selectedProductData.isSaleable) {
                         $('.box-tocart.catalog-product-pos-button-box').remove();
@@ -31,7 +31,7 @@ define([
                         $('[class="box-tocart"]').hide();
 
                         if (selectedProductData.isNotSaleable && selectedProductData.showButton) {
-                            var posButtonBoxNode = $('.box-tocart.catalog-product-pos-button-box');
+                            let posButtonBoxNode = $('.box-tocart.catalog-product-pos-button-box');
                             if (posButtonBoxNode.length === 0) {
                                 posButtonBoxNode = $('<div>', {class: 'box-tocart catalog-product-pos-button-box'});
                                 $('.product-options-bottom').append(posButtonBoxNode);
