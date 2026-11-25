@@ -2,7 +2,7 @@
     "name": "infrangible/m2-catalog-product-pos",
     "description": "Controls online saleability by a product attribute, e.g. for in-store-only products: hides the add-to-cart button for chosen attribute values and can show a custom button instead.",
     "type": "magento2-module",
-    "version": "1.1.3",
+    "version": "2.0.0",
     "license": "MIT",
     "keywords": [
         "Magento",
@@ -14,7 +14,7 @@
         "hide add to cart button by attribute",
         "not sold online products"
     ],
-    "homepage": "https://github.com/infrangible-dev/m2-catalog-product-pos",
+    "homepage": "https://www.infrangible.dev/modules/catalog-product-pos",
     "authors": [
         {
             "name": "Andreas Knollmann",
@@ -24,9 +24,17 @@
         }
     ],
     "require": {
-        "php": ">=7.1",
-        "magento/framework": "~101.0.0|~102.0.0|~103.0.0",
-        "infrangible/m2-catalog-product-swatches": "~1.1.0"
+        "php": ">=8.2",
+        "fewedev/base": "~2.4.3",
+        "infrangible/m2-catalog-product-swatches": "~2.0.0",
+        "infrangible/m2-core": "~5.0.5",
+        "infrangible/m2-foundation": "~3.0.1",
+        "magento/framework": "~103.0.6",
+        "magento/module-catalog": "~104.0.0",
+        "magento/module-config": "~101.2.0",
+        "magento/module-configurable-product": "~100.4.0",
+        "magento/module-eav": "~102.1.0",
+        "psr/log": "~2.0.0||~3.0.0"
     },
     "autoload": {
         "files": [
@@ -35,5 +43,8 @@
         "psr-4": {
             "Infrangible\\CatalogProductPOS\\": "src"
         }
+    },
+    "require-dev": {
+        "infrangible/phpstan-magento": "~1.2.0"
     }
 }

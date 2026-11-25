@@ -2,57 +2,55 @@
 
 declare(strict_types=1);
 
+/**
+ * @author      Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
 namespace Infrangible\CatalogProductPOS\Observer;
 
 use Infrangible\CatalogProductPOS\Helper\Data;
-use Infrangible\Core\Helper\Stores;
 use Magento\Catalog\Model\Product;
+use Magento\Catalog\Model\Product\Type;
 use Magento\Framework\DataObject;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
 
 /**
- * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
- * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ * Simple products (also the variants of configurable products) whose point of sale does not allow buying online are
+ * not saleable.
  */
 class CatalogProductIsSalableAfter implements ObserverInterface
 {
-    /** @var Data */
-    protected $helper;
-
-    /** @var Stores */
-    protected $storeHelper;
-
-    public function __construct(Data $helper, Stores $storeHelper)
+    /**
+     * @param Data $helper
+     */
+    public function __construct(protected Data $helper)
     {
-        $this->helper = $helper;
-        $this->storeHelper = $storeHelper;
     }
 
-    public function execute(Observer $observer)
+    /**
+     * Marks simple products as not saleable if their point of sale does not allow buying online.
+     *
+     * @param Observer $observer
+     *
+     * @return void
+     */
+    public function execute(Observer $observer): void
     {
-        /** @var DataObject $saleable */
         $saleable = $observer->getEvent()->getData('salable');
 
-        /** @var Product $product */
+        if (! $saleable instanceof DataObject) {
+            return;
+        }
+
         $product = $saleable->getData('product');
 
-        if ($product->getTypeId() === 'simple') {
-            $isSaleable = $saleable->getData('is_salable');
+        if ($product instanceof Product && $product->getTypeId() === Type::TYPE_SIMPLE &&
+            $saleable->getData('is_salable') && $this->helper->isNotSaleable($product)) {
 
-            if ($isSaleable) {
-                $isNotSaleable = $this->helper->isNotSaleable($product);
-
-                if ($isNotSaleable) {
-                    $isSaleable = false;
-                }
-            }
-
-            $saleable->setData(
-                'is_salable',
-                $isSaleable
-            );
+            $saleable->setData('is_salable', false);
         }
     }
 }

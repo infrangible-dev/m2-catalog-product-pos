@@ -4,18 +4,22 @@ declare(strict_types=1);
 
 /**
  * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
  * @license     http://www.opensource.org/licenses/mit-license.php MIT
  */
 
 use Infrangible\CatalogProductPOS\Block\Attribute;
+use Magento\Framework\Escaper;
 
+/** @var Escaper $escaper */
 /** @var Attribute $block */
+
+$attributeCodeClass = (string)$block->getAttributeCodeClass();
 ?>
 
-<?php if ($block->getAttributeCode()): ?>
+<?php if ($block->getAttributeCode() !== null): ?>
     <div class="catalog-product-pos">
-        <div class="catalog-product-pos-attribute <?= $block->getAttributeCodeClass(); ?>">
+        <div class="catalog-product-pos-attribute <?= $escaper->escapeHtmlAttr($attributeCodeClass) ?>">
         </div>
     </div>
     <script type="text/x-magento-template" id="catalog-product-pos-template">

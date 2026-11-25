@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
  * @license     http://www.opensource.org/licenses/mit-license.php MIT
  */
 
@@ -13,22 +13,22 @@ use Magento\Framework\Escaper;
 
 /** @var Escaper $escaper */
 /** @var Button $block */
-$product = $block->getProduct();
+
+$buttonText = (string)$block->getButtonText();
+$classes = $block->getAttributeCodeClass() . ' ' . $block->getAttributeValueClass();
 ?>
 
-<?php if (! $product->isSaleable() && $block->isNotSaleable() && $block->showButton()) :?>
-    <?php $buttonText = $block->getButtonText(); ?>
+<?php if (! $block->isSaleable() && $block->isNotSaleable() && $block->showButton()): ?>
     <div class="box-tocart catalog-product-pos-button-box">
         <div class="fieldset">
             <div class="actions">
-                <button type="button"
-                        title="<?= $escaper->escapeHtmlAttr($buttonText); ?>"
-                        class="action primary tocart catalog-product-pos-button <?= $block->getAttributeCodeClass(); ?> <?= $block->getAttributeValueClass(); ?>"
-                        id="product-button-pos"
-                        onclick="window.location.href = '<?= $block->getButtonUrl(); ?>';">
-                    <span><?= $escaper->escapeHtml($buttonText); ?></span>
-                </button>
-                <?= $block->getChildHtml(); ?>
+                <a href="<?= $escaper->escapeUrl((string)$block->getButtonUrl()) ?>"
+                   title="<?= $escaper->escapeHtmlAttr($buttonText) ?>"
+                   class="action primary tocart catalog-product-pos-button <?= $escaper->escapeHtmlAttr($classes) ?>"
+                   id="product-button-pos">
+                    <span><?= $escaper->escapeHtml($buttonText) ?></span>
+                </a>
+                <?= $block->getChildHtml() ?>
             </div>
         </div>
     </div>

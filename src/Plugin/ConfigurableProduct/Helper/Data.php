@@ -2,52 +2,86 @@
 
 declare(strict_types=1);
 
-namespace Infrangible\CatalogProductPOS\Plugin\ConfigurableProduct\Helper;
-
-use Infrangible\Core\Helper\Stores;
-use Magento\Catalog\Model\Product;
-
 /**
  * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
  * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
+namespace Infrangible\CatalogProductPOS\Plugin\ConfigurableProduct\Helper;
+
+use Infrangible\CatalogProductPOS\Helper\Data as Helper;
+use Infrangible\Core\Helper\Stores;
+use Magento\Catalog\Model\Product;
+use Magento\ConfigurableProduct\Helper\Data as Subject;
+
+/**
+ * Keeps the variants that cannot be bought online because of their point of sale selectable, so shoppers see their
+ * point of sale and button. Magento leaves out variants that are not saleable unless the store shows products that
+ * are out of stock.
  */
 class Data
 {
-    /** @var Stores */
-    protected $storeHelper;
-
-    /** @var \Infrangible\CatalogProductPOS\Helper\Data */
-    protected $helper;
-
-    public function __construct(Stores $storeHelper, \Infrangible\CatalogProductPOS\Helper\Data $helper)
+    /**
+     * @param Helper $helper
+     * @param Stores $storeHelper
+     */
+    public function __construct(protected Helper $helper, protected Stores $storeHelper)
     {
-        $this->storeHelper = $storeHelper;
-        $this->helper = $helper;
     }
 
+    /**
+     * Adds the variants that are not saleable because of their point of sale to the options of the attributes.
+     *
+     * @param Subject $subject
+     * @param array $options
+     * @param Product $currentProduct
+     * @param array $allowedProducts
+     * @phpstan-param array<int|string, mixed> $options
+     * @phpstan-param array<int|string, mixed> $allowedProducts
+     *
+     * @return array
+     * @phpstan-return array<int|string, mixed>
+     */
     public function afterGetOptions(
-        \Magento\ConfigurableProduct\Helper\Data $subject,
+        Subject $subject,
         array $options,
         Product $currentProduct,
         array $allowedProducts
     ): array {
-        if (! $this->storeHelper->getStoreConfigFlag('cataloginventory/options/show_out_of_stock')) {
-            $allowAttributes = $subject->getAllowAttributes($currentProduct);
+        if ($this->storeHelper->getStoreConfigFlag('cataloginventory/options/show_out_of_stock')) {
+            return $options;
+        }
 
-            /** @var Product $product */
-            foreach ($allowedProducts as $product) {
-                $productId = $product->getId();
+        $products = array_filter($allowedProducts, static fn(mixed $product): bool => $product instanceof Product);
 
-                foreach ($allowAttributes as $attribute) {
-                    $productAttribute = $attribute->getProductAttribute();
-                    $productAttributeId = $productAttribute->getId();
-                    $attributeValue = $product->getData($productAttribute->getAttributeCode());
+        $this->helper->loadAttributeOptionIds($products);
 
-                    if (! $product->isSalable() && $this->helper->isNotSaleable($product)) {
-                        $options[ $productAttributeId ][ $attributeValue ][] = $productId;
-                    }
+        $allowAttributes = $subject->getAllowAttributes($currentProduct);
+
+        foreach ($products as $product) {
+            if ($product->isSalable() || ! $this->helper->isNotSaleable($product)) {
+                continue;
+            }
+
+            foreach ($allowAttributes as $attribute) {
+                $productAttribute = $attribute->getProductAttribute();
+                $attributeValue = $product->getData($productAttribute->getAttributeCode());
+
+                $productAttributeId = $productAttribute->getId();
+
+                if (! is_scalar($attributeValue) || ! is_scalar($productAttributeId)) {
+                    continue;
                 }
+
+                $attributeOptions = $options[ $productAttributeId ] ?? [];
+                $attributeOptions = is_array($attributeOptions) ? $attributeOptions : [];
+                $productIds = $attributeOptions[ $attributeValue ] ?? [];
+                $productIds = is_array($productIds) ? $productIds : [];
+
+                $productIds[] = $product->getId();
+                $attributeOptions[ $attributeValue ] = $productIds;
+                $options[ $productAttributeId ] = $attributeOptions;
             }
         }
 

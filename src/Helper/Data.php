@@ -2,95 +2,92 @@
 
 declare(strict_types=1);
 
+/**
+ * @author      Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
 namespace Infrangible\CatalogProductPOS\Helper;
 
-use Exception;
-use FeWeDev\Base\Arrays;
 use FeWeDev\Base\Variables;
+use Infrangible\Core\Helper\Attribute as AttributeHelper;
+use Infrangible\Core\Helper\Database;
 use Infrangible\Core\Helper\Stores;
 use Magento\Catalog\Model\Product;
 use Magento\Eav\Model\Entity\Attribute;
+use Magento\Framework\Exception\LocalizedException;
+use Psr\Log\LoggerInterface;
 
 /**
- * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
- * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ * The point-of-sale attribute of products and the settings of its options: whether products with an option can be
+ * bought online and which button they show instead.
  */
 class Data
 {
-    /** @var Stores */
-    protected $storeHelper;
+    /** @var array<int, list<int>> option IDs by product ID */
+    private array $attributeOptionIds = [];
 
-    /** @var \Infrangible\Core\Helper\Attribute */
-    protected $attributeHelper;
+    /** @var array<int, string>|null option labels by option ID */
+    private ?array $attributeOptions = null;
 
-    /** @var Variables */
-    protected $variables;
+    /** @var array<int, string|null> values by product ID */
+    private array $attributeValues = [];
 
-    /** @var Arrays */
-    protected $arrays;
+    /** @var Attribute|null the configured attribute, once loaded */
+    private ?Attribute $attribute = null;
 
-    /** @var int|null */
-    private $attributeId = null;
+    /** @var bool whether the configured attribute was loaded */
+    private bool $attributeLoaded = false;
 
-    /** @var Attribute|null */
-    private $attribute = null;
-
-    /** @var string|null */
-    private $attributeCode = null;
-
-    /** @var array<int, int|null> */
-    private $attributeOptionIds = [];
-
-    /** @var string[]|null */
-    private $attributeOptions = null;
-
-    /** @var array<int, mixed> */
-    private $attributeValues = [];
-
-    /** @var string|null */
-    private $valuesSeparator = null;
-
+    /**
+     * @param Stores $storeHelper
+     * @param AttributeHelper $attributeHelper
+     * @param Variables $variables
+     * @param Database $databaseHelper
+     * @param LoggerInterface $logging
+     */
     public function __construct(
-        Stores $storeHelper,
-        \Infrangible\Core\Helper\Attribute $attributeHelper,
-        Variables $variables,
-        Arrays $arrays
+        protected Stores $storeHelper,
+        protected AttributeHelper $attributeHelper,
+        protected Variables $variables,
+        protected Database $databaseHelper,
+        protected LoggerInterface $logging
     ) {
-        $this->storeHelper = $storeHelper;
-        $this->attributeHelper = $attributeHelper;
-        $this->variables = $variables;
-        $this->arrays = $arrays;
     }
 
+    /**
+     * Returns the ID of the configured point-of-sale attribute.
+     *
+     * @return int|null
+     */
     public function getAttributeId(): ?int
     {
-        if ($this->attributeId === null) {
-            $attributeId = $this->storeHelper->getStoreConfig('infrangible_catalogproductpos/attribute/attribute');
+        $attributeId = $this->storeHelper->getStoreConfig('infrangible_catalogproductpos/attribute/attribute');
 
-            if ($attributeId) {
-                try {
-                    $this->attributeId = $this->variables->intValue($attributeId);
-                } catch (\Exception $exception) {
-                }
-            }
-        }
-
-        return $this->attributeId;
+        return is_numeric($attributeId) ? (int)$attributeId : null;
     }
 
+    /**
+     * Returns the configured point-of-sale attribute, or null if none is configured.
+     *
+     * @return Attribute|null
+     */
     public function getAttribute(): ?Attribute
     {
-        if ($this->attribute === null) {
+        if (! $this->attributeLoaded) {
+            $this->attributeLoaded = true;
+
             $attributeId = $this->getAttributeId();
 
-            if ($attributeId) {
+            if ($attributeId !== null) {
                 try {
                     $this->attribute = $this->attributeHelper->getAttribute(
                         Product::ENTITY,
                         (string)$attributeId
                     );
-                } catch (\Exception $exception) {
+                } catch (LocalizedException $exception) {
+                    $this->logging->error($exception);
                 }
             }
         }
@@ -98,83 +95,115 @@ class Data
         return $this->attribute;
     }
 
+    /**
+     * Returns the code of the point-of-sale attribute.
+     *
+     * @return string|null
+     */
     public function getAttributeCode(): ?string
     {
-        if ($this->attributeCode === null) {
-            $attribute = $this->getAttribute();
+        $attributeCode = $this->getAttribute()?->getAttributeCode();
 
-            if ($attribute) {
-                $this->attributeCode = $attribute->getAttributeCode();
-            }
-        }
-
-        return $this->attributeCode;
+        return is_string($attributeCode) && $attributeCode !== '' ? $attributeCode : null;
     }
 
+    /**
+     * Returns the code of the attribute as CSS class.
+     *
+     * @return string|null
+     */
     public function getAttributeCodeClass(): ?string
     {
         $attributeCode = $this->getAttributeCode();
 
-        if ($attributeCode) {
-            return strtolower(
-                preg_replace(
-                    '/[^A-Za-z0-9]/',
-                    '_',
-                    $attributeCode
-                )
-            );
-        }
-
-        return null;
+        return $attributeCode === null ? null : $this->toCssClass($attributeCode);
     }
 
     /**
-     * @return int[]
+     * Reads the values of the attribute for products that were loaded without it, with one query.
+     *
+     * Magento loads the variants of configurable products without the attributes it does not need itself.
+     *
+     * @param array<Product> $products
+     *
+     * @return void
+     */
+    public function loadAttributeOptionIds(array $products): void
+    {
+        $attributeCode = $this->getAttributeCode();
+
+        if ($attributeCode === null) {
+            return;
+        }
+
+        $productIds = [];
+        $storeId = null;
+
+        foreach ($products as $product) {
+            $productId = $this->getProductId($product);
+
+            if ($productId === null || array_key_exists($productId, $this->attributeOptionIds)) {
+                continue;
+            }
+
+            if ($product->hasData($attributeCode)) {
+                $this->attributeOptionIds[ $productId ] = $this->toOptionIds($product->getData($attributeCode));
+            } else {
+                $productIds[] = $productId;
+                $storeId = $this->variables->intValue($product->getStoreId());
+            }
+        }
+
+        if (count($productIds) === 0 || $storeId === null) {
+            return;
+        }
+
+        try {
+            $values = $this->attributeHelper->getAttributeValues(
+                $this->databaseHelper->getDefaultConnection(),
+                Product::ENTITY,
+                $attributeCode,
+                $productIds,
+                $storeId,
+                false
+            );
+        } catch (LocalizedException $exception) {
+            $this->logging->error($exception);
+
+            $values = [];
+        }
+
+        foreach ($productIds as $productId) {
+            $this->attributeOptionIds[ $productId ] = $this->toOptionIds($values[ $productId ] ?? null);
+        }
+    }
+
+    /**
+     * Returns the IDs of the options of the attribute that the product has.
+     *
+     * @param Product $product
+     *
+     * @return list<int>
      */
     public function getAttributeOptionIds(Product $product): array
     {
-        try {
-            $productId = $this->variables->intValue($product->getId());
+        $productId = $this->getProductId($product);
 
-            if (! array_key_exists(
-                $productId,
-                $this->attributeOptionIds
-            )) {
-                $attributeCode = $this->getAttributeCode();
-
-                if ($attributeCode) {
-                    $attributeOptionIds = $product->getData($attributeCode);
-
-                    $attributeOptionIds = $this->variables->isEmpty($attributeOptionIds) ? [] : explode(
-                        ',',
-                        $attributeOptionIds
-                    );
-
-                    if (! $this->variables->isEmpty($attributeOptionIds)) {
-                        $this->attributeOptionIds[ $productId ] = [];
-
-                        try {
-                            foreach ($attributeOptionIds as $attributeOptionId) {
-                                $this->attributeOptionIds[ $productId ][] =
-                                    $this->variables->intValue($attributeOptionId);
-                            }
-                        } catch (Exception $exception) {
-                        }
-                    } else {
-                        $this->attributeOptionIds[ $productId ] = [];
-                    }
-                }
-            }
-
-            return $this->attributeOptionIds[ $productId ];
-        } catch (Exception $exception) {
+        if ($productId === null) {
+            return [];
         }
 
-        return [];
+        if (! array_key_exists($productId, $this->attributeOptionIds)) {
+            $this->loadAttributeOptionIds([$product]);
+        }
+
+        return $this->attributeOptionIds[ $productId ] ?? [];
     }
 
     /**
-     * @return string[]|null
+     * Returns the labels of the options of the attribute by option ID.
+     *
+     * @return array<int, string>
      */
     public function getAttributeOptions(): array
     {
@@ -183,23 +212,19 @@ class Data
 
             $attribute = $this->getAttribute();
 
-            if ($attribute) {
+            if ($attribute !== null) {
                 try {
                     foreach ($attribute->getSource()->getAllOptions() as $option) {
-                        $optionId = $this->arrays->getValue(
-                            $option,
-                            'value'
-                        );
-                        $optionLabel = $this->arrays->getValue(
-                            $option,
-                            'label'
-                        );
+                        $optionId = $option[ 'value' ] ?? null;
+                        $optionLabel = $option[ 'label' ] ?? '';
 
-                        if ($optionId) {
-                            $this->attributeOptions[ $this->variables->intValue($optionId) ] = $optionLabel;
+                        if (is_numeric($optionId)) {
+                            $this->attributeOptions[ (int)$optionId ] =
+                                $this->variables->stringValueOrDefault($optionLabel);
                         }
                     }
-                } catch (\Exception $exception) {
+                } catch (LocalizedException $exception) {
+                    $this->logging->error($exception);
                 }
             }
         }
@@ -207,99 +232,70 @@ class Data
         return $this->attributeOptions;
     }
 
+    /**
+     * Returns the labels of the options of the product, joined with the values separator.
+     *
+     * @param Product $product
+     *
+     * @return string|null
+     */
     public function getAttributeValue(Product $product): ?string
     {
-        try {
-            $productId = $this->variables->intValue($product->getId());
+        $productId = $this->getProductId($product);
 
-            if (! array_key_exists(
-                $productId,
-                $this->attributeValues
-            )) {
-                $attributeOptionIds = $this->getAttributeOptionIds($product);
-
-                if (! $this->variables->isEmpty($attributeOptionIds)) {
-                    $attributeCode = $this->getAttributeCode();
-
-                    if ($attributeCode) {
-                        $storeId = $this->variables->intValue($this->storeHelper->getStore()->getId());
-
-                        $attributeValue = $this->attributeHelper->getAttributeOptionValue(
-                            Product::ENTITY,
-                            $attributeCode,
-                            $storeId,
-                            implode(
-                                ',',
-                                $attributeOptionIds
-                            )
-                        );
-
-                        if (is_array($attributeValue)) {
-                            $attributeValue = implode(
-                                $this->getValuesSeparator(),
-                                $attributeValue
-                            );
-                        }
-
-                        $this->attributeValues[ $productId ] = $attributeValue;
-
-                        return $this->attributeValues[ $productId ];
-                    }
-                }
-            } else {
-                return $this->attributeValues[ $productId ];
-            }
-        } catch (Exception $exception) {
+        if ($productId === null) {
+            return null;
         }
 
-        return null;
+        if (! array_key_exists($productId, $this->attributeValues)) {
+            $labels = [];
+            $options = $this->getAttributeOptions();
+
+            foreach ($this->getAttributeOptionIds($product) as $optionId) {
+                if (isset($options[ $optionId ]) && $options[ $optionId ] !== '') {
+                    $labels[] = $options[ $optionId ];
+                }
+            }
+
+            $this->attributeValues[ $productId ] =
+                count($labels) === 0 ? null : implode($this->getValuesSeparator(), $labels);
+        }
+
+        return $this->attributeValues[ $productId ];
     }
 
+    /**
+     * Returns the value of the product as CSS class.
+     *
+     * @param Product $product
+     *
+     * @return string|null
+     */
     public function getAttributeValueClass(Product $product): ?string
     {
         $attributeValue = $this->getAttributeValue($product);
 
-        if ($attributeValue) {
-            return strtolower(
-                preg_replace(
-                    '/[^A-Za-z0-9]/',
-                    '_',
-                    $attributeValue
-                )
-            );
-        }
-
-        return null;
+        return $attributeValue === null ? null : $this->toCssClass($attributeValue);
     }
 
+    /**
+     * Checks whether the product cannot be bought online.
+     *
+     * This is the case if all its options are not saleable, or one of them is not saleable and commanding.
+     *
+     * @param Product $product
+     *
+     * @return bool
+     */
     public function isNotSaleable(Product $product): bool
     {
         $attributeOptionIds = $this->getAttributeOptionIds($product);
 
-        $isNotSaleable = ! $this->variables->isEmpty($attributeOptionIds);
+        $isNotSaleable = count($attributeOptionIds) > 0;
 
         foreach ($attributeOptionIds as $attributeOptionId) {
-            $optionGroupKey = sprintf(
-                'option_id_%d',
-                $attributeOptionId
-            );
-
-            $optionIsNotSaleable = $this->storeHelper->getStoreConfigFlag(
-                sprintf(
-                    'infrangible_catalogproductpos/%s/not_saleable',
-                    $optionGroupKey
-                )
-            );
-
-            if ($optionIsNotSaleable) {
-                $optionIsCommanding = $this->storeHelper->getStoreConfigFlag(
-                    sprintf(
-                        'infrangible_catalogproductpos/%s/commanding',
-                        $optionGroupKey
-                    )
-                );
-
-                if ($optionIsCommanding) {
+            if ($this->getOptionFlag($attributeOptionId, 'not_saleable')) {
+                if ($this->getOptionFlag($attributeOptionId, 'commanding')) {
                     return true;
                 }
             } else {
@@ -310,24 +306,17 @@ class Data
         return $isNotSaleable;
     }
 
+    /**
+     * Checks whether one of the options of the product shows a button.
+     *
+     * @param Product $product
+     *
+     * @return bool
+     */
     public function showButton(Product $product): bool
     {
-        $attributeOptionIds = $this->getAttributeOptionIds($product);
-
-        foreach ($attributeOptionIds as $attributeOptionId) {
-            $optionGroupKey = sprintf(
-                'option_id_%d',
-                $attributeOptionId
-            );
-
-            $showButton = $this->storeHelper->getStoreConfigFlag(
-                sprintf(
-                    'infrangible_catalogproductpos/%s/show_button',
-                    $optionGroupKey
-                )
-            );
-
-            if ($showButton) {
+        foreach ($this->getAttributeOptionIds($product) as $attributeOptionId) {
+            if ($this->getOptionFlag($attributeOptionId, 'show_button')) {
                 return true;
             }
         }
@@ -335,65 +324,145 @@ class Data
         return false;
     }
 
+    /**
+     * Returns the button text of the first option of the product that has one.
+     *
+     * @param Product $product
+     *
+     * @return string|null
+     */
     public function getButtonText(Product $product): ?string
     {
-        $attributeOptionIds = $this->getAttributeOptionIds($product);
-
-        foreach ($attributeOptionIds as $attributeOptionId) {
-            $optionGroupKey = sprintf(
-                'option_id_%d',
-                $attributeOptionId
-            );
-
-            $buttonText = $this->storeHelper->getStoreConfig(
-                sprintf(
-                    'infrangible_catalogproductpos/%s/button_text',
-                    $optionGroupKey
-                )
-            );
-
-            if (! $this->variables->isEmpty($buttonText)) {
-                return $buttonText;
-            }
-        }
-
-        return null;
+        return $this->getOptionValue($product, 'button_text');
     }
 
+    /**
+     * Returns the button URL of the first option of the product that has one; URLs with a script scheme
+     * ("javascript:" and the like) are not returned.
+     *
+     * @param Product $product
+     *
+     * @return string|null
+     */
     public function getButtonUrl(Product $product): ?string
     {
-        $attributeOptionIds = $this->getAttributeOptionIds($product);
+        $buttonUrl = $this->getOptionValue($product, 'button_url');
 
-        foreach ($attributeOptionIds as $attributeOptionId) {
-            $optionGroupKey = sprintf(
-                'option_id_%d',
-                $attributeOptionId
-            );
+        if ($buttonUrl === null) {
+            return null;
+        }
 
-            $buttonUrl = $this->storeHelper->getStoreConfig(
-                sprintf(
-                    'infrangible_catalogproductpos/%s/button_url',
-                    $optionGroupKey
+        $scheme = strtolower((string)preg_replace('/[\x00-\x20]/', '', explode(':', $buttonUrl, 2)[ 0 ]));
+
+        return str_contains($buttonUrl, ':') && in_array($scheme, ['javascript', 'data', 'vbscript'], true) ?
+            null : $buttonUrl;
+    }
+
+    /**
+     * Returns the separator of the labels of products with several options.
+     *
+     * @return string
+     */
+    public function getValuesSeparator(): string
+    {
+        return $this->variables->stringValueOrDefault(
+            $this->storeHelper->getStoreConfig('infrangible_catalogproductpos/attribute/values_separator'),
+            ', '
+        );
+    }
+
+    /**
+     * Returns a flag of the settings of an option.
+     *
+     * @param int $attributeOptionId
+     * @param string $field
+     *
+     * @return bool
+     */
+    private function getOptionFlag(int $attributeOptionId, string $field): bool
+    {
+        return $this->storeHelper->getStoreConfigFlag(
+            sprintf(
+                'infrangible_catalogproductpos/option_id_%d/%s',
+                $attributeOptionId,
+                $field
+            )
+        );
+    }
+
+    /**
+     * Returns a text of the settings of the first option of the product that has one.
+     *
+     * @param Product $product
+     * @param string $field
+     *
+     * @return string|null
+     */
+    private function getOptionValue(Product $product, string $field): ?string
+    {
+        foreach ($this->getAttributeOptionIds($product) as $attributeOptionId) {
+            $value = $this->variables->stringValueOrDefault(
+                $this->storeHelper->getStoreConfig(
+                    sprintf(
+                        'infrangible_catalogproductpos/option_id_%d/%s',
+                        $attributeOptionId,
+                        $field
+                    )
                 )
             );
 
-            if (! $this->variables->isEmpty($buttonUrl)) {
-                return $buttonUrl;
+            if (trim($value) !== '') {
+                return $value;
             }
         }
 
         return null;
     }
 
-    public function getValuesSeparator(): string
+    /**
+     * Returns the ID of the product, or null for a product that is not saved.
+     *
+     * @param Product $product
+     *
+     * @return int|null
+     */
+    private function getProductId(Product $product): ?int
     {
-        if ($this->valuesSeparator === null) {
-            $this->valuesSeparator = $this->storeHelper->getStoreConfig(
-                'infrangible_catalogproductpos/attribute/values_separator',
-                ', '
-            );
+        // Magento declares the ID as int, but it is a string or null at runtime
+        $productId = $product->getData('entity_id') ?? $product->getData('id');
+
+        return is_numeric($productId) ? (int)$productId : null;
+    }
+
+    /**
+     * Returns the option IDs of a value: one ID or several separated by commas.
+     *
+     * @param mixed $value
+     *
+     * @return list<int>
+     */
+    private function toOptionIds(mixed $value): array
+    {
+        $optionIds = [];
+
+        foreach (explode(',', $this->variables->stringValueOrDefault($value)) as $optionId) {
+            if (is_numeric(trim($optionId))) {
+                $optionIds[] = (int)trim($optionId);
+            }
         }
 
-        return $this->valuesSeparator;
+        return $optionIds;
+    }
+
+    /**
+     * Returns a text as CSS class: lowercase, other characters than letters and digits replaced by underscores.
+     *
+     * @param string $text
+     *
+     * @return string
+     */
+    private function toCssClass(string $text): string
+    {
+        return strtolower((string)preg_replace('/[^A-Za-z0-9]/', '_', $text));
     }
 }
