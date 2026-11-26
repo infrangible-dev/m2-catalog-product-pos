@@ -2,7 +2,7 @@
     "name": "infrangible/m2-catalog-product-pos",
     "description": "Controls online saleability by a product attribute, e.g. for in-store-only products: hides the add-to-cart button for chosen attribute values and can show a custom button instead.",
     "type": "magento2-module",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "license": "MIT",
     "keywords": [
         "Magento",

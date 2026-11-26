@@ -33,7 +33,6 @@ define([
             const childProductData = this.options.childProductData;
 
             $('.column.main').on('swatch.changed', function (event, selectedProductId) {
-                /** @type {CatalogProductPosChildData|undefined} */
                 const selectedProductData = selectedProductId ? childProductData[selectedProductId] : undefined,
                     addToCartNode = $('[class="box-tocart"]');
                 let posButtonBoxNode = $('.box-tocart.catalog-product-pos-button-box');
