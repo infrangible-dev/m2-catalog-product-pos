@@ -29,13 +29,13 @@ define([
             childProductData: {}
         },
 
-        _init: function initCatalogProductPos() {
+        _init: function () {
             const childProductData = this.options.childProductData;
 
             $('.column.main').on('swatch.changed', function (event, selectedProductId) {
                 /** @type {CatalogProductPosChildData|undefined} */
-                const selectedProductData = selectedProductId ? childProductData[selectedProductId] : undefined;
-                const addToCartNode = $('[class="box-tocart"]');
+                const selectedProductData = selectedProductId ? childProductData[selectedProductId] : undefined,
+                    addToCartNode = $('[class="box-tocart"]');
                 let posButtonBoxNode = $('.box-tocart.catalog-product-pos-button-box');
 
                 if (!selectedProductData || selectedProductData.isSaleable) {
